@@ -5,6 +5,10 @@ const bodyParser = require('body-parser');
 const ejs = require('ejs');
 const mongoose = require('mongoose');
 const encrypt = require('mongoose-encryption');
+//const md5 = require('md5');
+const bcrypt = require('bcrypt');
+
+const saltrounds = 10;
 
 app.use(bodyParser.urlencoded({extended: true}));
 app.use(express.static('public'));
@@ -20,7 +24,7 @@ const userSchema = new mongoose.Schema({
     password: String
 });
 
-userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"] });
+//userSchema.plugin(encrypt, { secret: process.env.SECRET, encryptedFields: ["password"] });
 
 const User = mongoose.model("User", userSchema);
 
@@ -36,16 +40,24 @@ app.get("/register", (req, res) => {
     res.render('register');
 });
 
-app.post("/register", async (req, res) => {
-    try {
-        await User.create({
-            email: req.body.username,
-            password: req.body.password
-        });
-        res.render("secrets");
-    } catch (error) {
-        console.log(error);
-    }
+app.post("/register", (req, res) => {
+    
+        bcrypt.hash(req.body.password, saltrounds, async (error, hash) => {
+            
+            if(!error){
+                try {
+                    await User.create({
+                        email: req.body.username,
+                        password: hash
+                    });
+                    res.render("secrets");
+                } catch (error) {
+                    console.log(error);
+                }
+            } else {
+                console.log(error);
+            }
+        }); 
 });
 
 app.post("/login", async (req, res) => {
@@ -54,9 +66,14 @@ app.post("/login", async (req, res) => {
     try {
         await User.findOne({email: username}).then((foundUser) => {
             if(foundUser){
-                if(foundUser.password === password){
-                    res.render("secrets");
-                }
+                 bcrypt.compare(password, foundUser.password, (error, result) => {
+                    if(result === true){
+                        res.render("secrets");
+                    } else {
+                        res.send("Somethings wrong!");
+                        console.log(error);
+                    }
+                });
             }
         });
     } catch (error) {
