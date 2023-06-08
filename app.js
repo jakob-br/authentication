@@ -51,13 +51,54 @@ app.get("/register", (req, res) => {
     res.render('register');
 });
 
+app.get("/secrets", (req, res) => {
+    if(req.isAuthenticated()){
+        res.render('secrets');
+    } else {
+        res.redirect("/login");
+    }
+});
+
+app.get("/logout", (req, res) => {
+    req.logout((err)=>{
+        if(err){
+            console.log(err);
+        }else{
+            res.redirect("/");
+        }
+    });
+});
+
 app.post("/register", (req, res) => {
     
+    User.register({username: req.body.username}, req.body.password, (error, user) => {
+        if(error) {
+            console.log(error);
+            res.redirect("/register");
+        } else {
+            passport.authenticate("local")(req, res, () => {
+                res.redirect("/secrets");
+            });
+        }
+    });
+
 });
 
 app.post("/login", async (req, res) => {
-    const username = req.body.username;
-    const password = req.body.password;
+    const user = new User({
+        username: req.body.username,
+        password: req.body.password
+    });
+
+    req.login(user, (error) => {
+        if(error){
+            console.log(error);
+        } else {
+            passport.authenticate("local")(req, res, () => {
+                res.redirect("/secrets");
+            });
+        }
+    });
 });
 
 const PORT = process.env.PORT || 3000;
